@@ -11,7 +11,7 @@ başka bir ortama taşıyan masaüstü uygulaması.
 
 [![CI](https://img.shields.io/badge/CI-passing-30A46C)]()
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-3D63DD)]()
-[![Sürüm](https://img.shields.io/badge/sürüm-2.0.0-3D63DD)]()
+[![Sürüm](https://img.shields.io/badge/sürüm-1.0.0-3D63DD)]()
 
 </div>
 
