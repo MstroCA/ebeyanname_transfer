@@ -11,7 +11,8 @@ başka bir ortama taşıyan masaüstü uygulaması.
 
 [![CI](https://img.shields.io/badge/CI-passing-30A46C)]()
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-3D63DD)]()
-[![Sürüm](https://img.shields.io/badge/sürüm-1.0.0-3D63DD]()
+[![Sürüm](https://img.shields.io/badge/sürüm-1.0.0-3D63DD)](https://github.com/MstroCA/ebeyanname_transfer/releases/tag/v1.0.0)
+[![GitHub Release](https://img.shields.io/github/v/release/MstroCA/ebeyanname_transfer)](https://github.com/MstroCA/ebeyanname_transfer/releases)
 
 </div>
 
