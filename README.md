@@ -2,7 +2,7 @@
 
 <img src="assets/logo.png" width="96" alt="Beyanname Transfer"/>
 
-# Beyanname Transfer
+# EBeyanname Transfer
 
 **Ortamlar arası güvenli beyanname veri aktarım aracı**
 
