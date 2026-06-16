@@ -1,0 +1,36 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3D63DD"/>
+      <stop offset="1" stop-color="#2E4DB0"/>
+    </linearGradient>
+    <linearGradient id="dbg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#D7E0F4"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="url(#bg)"/>
+  <!-- sol DB (kaynak) -->
+  <g transform="translate(58,86)">
+    <ellipse cx="0" cy="58" rx="30" ry="10" fill="#1E3A8A" opacity="0.4"/>
+    <path d="M-30 12 v40 a30 10 0 0 0 60 0 v-40" fill="url(#dbg)"/>
+    <ellipse cx="0" cy="28" rx="30" ry="10" fill="#EAF0FB"/>
+    <path d="M-30 -8 v20 a30 10 0 0 0 60 0 v-20" fill="url(#dbg)"/>
+    <ellipse cx="0" cy="-8" rx="30" ry="10" fill="#FFFFFF"/>
+  </g>
+  <!-- transfer oku -->
+  <g transform="translate(128,128)">
+    <path d="M-14 -10 H10 M10 -10 L2 -20 M10 -10 L2 0" stroke="#FFFFFF" stroke-width="9"
+          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M14 18 H-10 M-10 18 L-2 8 M-10 18 L-2 28" stroke="#9FB8FF" stroke-width="9"
+          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+  <!-- sağ DB (hedef) -->
+  <g transform="translate(198,86)">
+    <ellipse cx="0" cy="58" rx="30" ry="10" fill="#1E3A8A" opacity="0.4"/>
+    <path d="M-30 12 v40 a30 10 0 0 0 60 0 v-40" fill="url(#dbg)"/>
+    <ellipse cx="0" cy="28" rx="30" ry="10" fill="#EAF0FB"/>
+    <path d="M-30 -8 v20 a30 10 0 0 0 60 0 v-20" fill="url(#dbg)"/>
+    <ellipse cx="0" cy="-8" rx="30" ry="10" fill="#FFFFFF"/>
+  </g>
+</svg>
