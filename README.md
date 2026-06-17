@@ -1,147 +1,185 @@
 <div align="center">
 
-<img src="assets/logo.png" width="96" alt="Beyanname Transfer"/>
+<img src="assets/logo.png" width="96" alt="RecordRelay"/>
 
-# EBeyanname Transfer
+# RecordRelay
 
-**Ortamlar arası güvenli beyanname veri aktarım aracı**
+**Universal database record transfer across environments**
 
-Test/Prod ortamındaki beyanname verisini, güvenli yön kurallarıyla
-başka bir ortama taşıyan masaüstü uygulaması.
+Transfer any record — with all its related rows — between PostgreSQL or MySQL databases safely. Environment direction rules prevent accidental upstream writes. Works as a desktop app (EXE), IntelliJ plugin, or CLI.
 
-[![CI](https://img.shields.io/badge/CI-passing-30A46C)]()
+[![CI](https://github.com/MstroCA/recordrelay/actions/workflows/ci.yml/badge.svg)](https://github.com/MstroCA/recordrelay/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/MstroCA/recordrelay?color=3D63DD)](https://github.com/MstroCA/recordrelay/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-3D63DD)]()
-[![Sürüm](https://img.shields.io/badge/sürüm-1.0.0-3D63DD)](https://github.com/MstroCA/ebeyanname_transfer/releases/tag/v1.0.0)
-[![GitHub Release](https://img.shields.io/github/v/release/MstroCA/ebeyanname_transfer)](https://github.com/MstroCA/ebeyanname_transfer/releases)
+[![IntelliJ Plugin](https://img.shields.io/badge/JetBrains-Plugin-3D63DD?logo=intellijidea&logoColor=white)]()
 
 </div>
 
 ---
 
-## Neden?
+## Why?
 
-Test ortamında bir issue çıkıyor, local'de aynı veriyi ayağa kaldırmak
-gerekiyor ama iş hep aynı yere dönüyor: onlarca bağlı tablo, foreign key
-sırası, eksik kolonlar, Liquibase farkları, tek tek INSERT üretme derdi.
+You have a bug in staging. You need the exact production record — with all 20 related tables — in your local database. Right now. Without writing 200 SQL lines or breaking foreign key order.
 
-Bu araç o süreci otomatikleştirir. Bir `beyanname_id` verirsiniz; ilgili tüm
-kayıtları kaynak ortamdan çekip hedef veritabanına taşır. V1 komut satırı
-aracının yerini alan bu sürüm; arayüz, ortam yönetimi, yön güvenliği ve
-izleme ekler.
+RecordRelay does that in three clicks: pick source, pick target, enter the record ID.
 
-## Öne Çıkanlar
+---
 
-- **Veritabanı tanımlama menüsü** — Prod / Test / Local ortamlarını arayüzden
-  tanımlayın. Şifreler makineye özel anahtarla **şifreli** saklanır.
-- **Yön güvenliği** — veri yalnızca üst ortamdan alt ortama akar. Yasak yön
-  seçilirse arayüz kırmızıya döner, başlatma engellenir. Hem arayüzde hem
-  motorda iki kez zorlanır.
-- **Görsel ortam ikonları** — renk kodlu veritabanı ikonları (Prod kırmızı,
-  Test amber, Local yeşil).
-- **Canlı log + izleme** — aktarım adımları gerçek zamanlı akar; tüm
-  çalıştırmalar geçmişte durum/satır/süre ile saklanır.
-- **Tek dosya, kurulumsuz** — Windows/macOS/Linux için hazır paket.
+## Features
 
-## İzin Verilen / Yasak Yönler
+- **Generic transfer** — configure any root table + FK column. Works with `beyanname_id`, `order_id`, `user_id`, or any schema.
+- **Multi-database** — PostgreSQL and MySQL/MariaDB supported.
+- **Environment direction rules** — data only flows downstream (PROD → TEST → LOCAL). Upstream writes are blocked at both the UI and engine level.
+- **Dry-run mode** — preview exactly what would be transferred before writing anything.
+- **Transfer Profiles** — save named configs (root table + FK column) for quick reuse.
+- **Field overrides** — override specific column values (e.g. `created_by`, tenant IDs) via JSON.
+- **CLI** — automate transfers in CI/CD pipelines or support scripts.
+- **IntelliJ Plugin** — built-in tool window for all JetBrains IDEs. No Python needed.
+- **Encrypted connection store** — passwords encrypted with a machine-specific key (Fernet + PBKDF2). Never stored in plain text.
+- **Transfer history** — every run logged with status, row counts, duration, and a detailed log file. Shared between desktop app and plugin.
 
-| Yön | Durum |  | Yön | Durum |
+---
+
+## Direction Rules
+
+| Direction | Status | | Direction | Status |
 |---|---|---|---|---|
-| Prod → Test | ✅ | | Local → Prod | ⛔ |
-| Prod → Local | ✅ | | Test → Prod | ⛔ |
-| Test → Local | ✅ | | Local → Test | ⛔ |
+| PROD → TEST | ✅ | | LOCAL → PROD | ⛔ |
+| PROD → LOCAL | ✅ | | TEST → PROD | ⛔ |
+| TEST → LOCAL | ✅ | | LOCAL → TEST | ⛔ |
+| PROD → STAGING | ✅ | | STAGING → PROD | ⛔ |
 
-> **Kural:** Veri her zaman daha üst (canlı/güvenli) ortamdan daha alt
-> (geliştirme) ortama doğru akar; asla yukarı doğru değil.
+Custom environments (STAGING, QA, DEV, etc.) are supported — direction is determined by rank, not hardcoded names.
 
-## Kurulum
+---
 
-### Hazır paket (önerilen)
+## Installation
 
-[Releases](../../releases) sayfasından işletim sisteminize uygun dosyayı
-indirin, arşivi açın, çalıştırın. Kurulum gerekmez.
+### Desktop App (recommended)
 
-| İşletim Sistemi | Dosya |
+Download the binary for your OS from [Releases](../../releases), extract, and run. No installation required.
+
+| OS | File |
 |---|---|
-| 🪟 Windows | `BeyannameTransfer-windows.zip` |
-| 🍎 macOS | `BeyannameTransfer-macos.zip` |
-| 🐧 Linux | `BeyannameTransfer-linux.tar.gz` |
+| 🪟 Windows | `RecordRelay-windows.zip` |
+| 🍎 macOS | `RecordRelay-macos.zip` |
+| 🐧 Linux | `RecordRelay-linux.tar.gz` |
 
-### Kaynaktan çalıştırma
+> **Note:** On first launch, Windows SmartScreen or macOS Gatekeeper may warn about an unsigned app. Click "Run anyway" / "Open anyway" to proceed.
+
+### IntelliJ Plugin
+
+Install **RecordRelay** from the [JetBrains Marketplace](https://plugins.jetbrains.com/) or install from disk:
+
+1. `Settings → Plugins → ⚙ → Install Plugin from Disk`
+2. Select `recordrelay-plugin-3.0.0.zip` from the [Releases](../../releases) page.
+
+Works in IntelliJ IDEA, PyCharm, WebStorm, DataGrip, and all JetBrains IDEs (2024.1+).
+
+### CLI
+
+```bash
+pip install -r requirements.txt
+python cli.py transfer \
+  --source-id <uuid> --target-id <uuid> \
+  --record-id 42 --root-table orders --fk-column order_id
+```
+
+```bash
+python cli.py connections list
+python cli.py history --limit 20
+```
+
+### Run from source
 
 ```bash
 pip install -r requirements.txt
 python main.py
 ```
 
-Python 3.9+ gereklidir.
+Python 3.9+ required.
 
-## Kullanım
+---
 
-1. **Veritabanları** sekmesinden ortamlarınızı tanımlayın. Her tanımı
-   "Bağlantıyı Test Et" ile doğrulayabilirsiniz.
-2. **Aktarım** sekmesinde kaynak/hedef seçin. Yön uygunsa banner yeşile döner.
-3. Beyanname ID'sini girip (isteğe bağlı `created_by` / `mükellef VKN`)
-   **Aktarımı Başlat**'a basın.
-4. **İzleme** sekmesinden geçmiş çalıştırmaları ve logları görün.
+## Quick Start
 
-## Paketleme
+1. **Connections** tab → add your databases (host, port, DB name, user, password, environment).
+2. **Profiles** tab → create a transfer profile (root table + FK column), or use a built-in.
+3. **Transfer** tab → select source and target, pick a profile, enter the record ID.
+4. Optionally enable **Dry Run** to preview without writing.
+5. Click **Start Transfer**. Watch the live log.
+6. **History** tab → review past runs, open detailed log files.
 
-Sürüm etiketi push edildiğinde GitHub Actions otomatik olarak üç işletim
-sistemi için paketler ve Release oluşturur:
+---
 
-```bash
-git tag v2.0.1
-git push origin v2.0.1
-```
-
-Yerel paketleme:
-
-```bash
-# macOS / Linux
-./scripts/build.sh
-# Windows
-.\scripts\build.ps1
-```
-
-## Mimari
+## Architecture
 
 ```
 app/
-  core/                  # arayüzden bağımsız çekirdek (test kapsamında)
-    environments.py      # ortam tipleri + yön kuralları
-    store.py             # şifreli bağlantı saklama
-    engine.py            # transfer motoru
-    monitoring.py        # log + çalıştırma geçmişi
-  ui/                    # PySide6 arayüz
+  core/
+    environments.py   # configurable env registry + direction rules
+    adapters.py       # PostgreSQL + MySQL DB adapters
+    store.py          # encrypted connection store (Fernet + PBKDF2)
+    profiles.py       # transfer profile CRUD
+    engine.py         # generic transfer engine (root_table / fk_column / record_id)
+    monitoring.py     # run history + per-transfer log files
+  ui/
+    main_window.py    connections_view.py  transfer_view.py
+    transfer_worker.py  monitoring_view.py  profiles_view.py
     theme.py  icons.py  widgets.py
-    connections_view.py  transfer_view.py  transfer_worker.py
-    monitoring_view.py   main_window.py
-tests/                   # yön + saklama testleri
-.github/workflows/       # CI + Release otomasyonu
-scripts/                 # yerel build betikleri
-assets/                  # logo + ikon
+
+plugin/               # IntelliJ Platform Plugin (Kotlin + JDBC)
+  src/main/kotlin/io/recordrelay/
+    core/             # Environment, Connection, TransferEngine, TransferProfile
+    store/            # ConnectionStore (PasswordSafe), ProfileStore
+    ui/panels/        # TransferPanel, ConnectionsPanel, ProfilesPanel, HistoryPanel
+    ui/dialogs/       # ConnectionDialog, ProfileDialog
+
+cli.py                # typer CLI
+tests/                # direction rules + encrypted store tests
+.github/workflows/    # CI + Release automation
 ```
 
-## Veri Konumu
+## Data Location
 
 ```
-~/.beyanname_transfer/
-  connections.enc      # şifreli bağlantı tanımları
-  .salt / .machine     # makineye özel anahtar türetme
-  history.jsonl        # çalıştırma geçmişi
-  logs/                # her aktarımın detaylı logu
+~/.recordrelay/
+  connections.enc     # encrypted connection definitions
+  profiles.enc        # encrypted transfer profiles
+  environments.json   # custom environment definitions
+  .salt / .machine    # machine-specific key derivation
+  history.jsonl       # run history (shared between desktop app and plugin)
+  logs/               # per-transfer detailed logs
 ```
 
-## Testler
+---
+
+## Development
 
 ```bash
+# Run tests
 pytest tests/ -v
+
+# Build desktop app
+./scripts/build.sh           # macOS / Linux
+.\scripts\build.ps1          # Windows
+
+# Build IntelliJ plugin
+cd plugin && ./gradlew buildPlugin
+# Output: plugin/build/distributions/recordrelay-plugin-3.0.0.zip
 ```
 
-Yön kuralları ve şifreli saklama kritik kısıtlardır; CI her push'ta çalışır.
+Release a new version by pushing a version tag:
+
+```bash
+git tag v3.0.0
+git push origin v3.0.0
+```
+
+GitHub Actions builds all three OS packages and the IntelliJ plugin ZIP, then publishes a Release automatically.
 
 ---
 
 <div align="center">
-<sub>GİB Teknoloji — Platform Engineering</sub>
+<sub>RecordRelay — Platform Engineering</sub>
 </div>

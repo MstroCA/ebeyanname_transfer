@@ -1,117 +1,156 @@
 name: Release
 
-# Bir sürüm etiketi (ör. v2.0.0) push edilince çalışır.
-# Üç işletim sistemi için paketler ve GitHub Release'e yükler.
 on:
   push:
     tags:
       - "v*.*.*"
-  workflow_dispatch:        # gerekirse elle de tetiklenebilir
+  workflow_dispatch:
 
 permissions:
-  contents: write           # Release oluşturmak için
+  contents: write
 
 jobs:
-  build:
-    name: Build (${{ matrix.os }})
+  build-desktop:
+    name: Desktop — ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: windows-latest
-            artifact: BeyannameTransfer-windows
-            ext: ".exe"
-            asset: BeyannameTransfer.exe
+            artifact: RecordRelay-windows
+            archive_cmd: zip
           - os: macos-latest
-            artifact: BeyannameTransfer-macos
-            ext: ".app"
-            asset: BeyannameTransfer.app
+            artifact: RecordRelay-macos
+            archive_cmd: zip
           - os: ubuntu-latest
-            artifact: BeyannameTransfer-linux
-            ext: ""
-            asset: BeyannameTransfer
+            artifact: RecordRelay-linux
+            archive_cmd: tar
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Python kur
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
 
-      - name: Linux sistem bağımlılıkları
+      - name: Linux system deps
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libegl1 libxkbcommon0 libdbus-1-3
 
-      - name: Bağımlılıkları yükle
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r build-requirements.txt
 
-      - name: Paketle
+      - name: Build with PyInstaller
         run: pyinstaller --noconfirm build.spec
 
-      - name: Arşivle (Windows)
+      - name: Archive (Windows)
         if: runner.os == 'Windows'
         run: |
           cd dist
-          Compress-Archive -Path BeyannameTransfer.exe -DestinationPath ../${{ matrix.artifact }}.zip
+          Compress-Archive -Path RecordRelay.exe -DestinationPath ../RecordRelay-windows.zip
 
-      - name: Arşivle (macOS)
+      - name: Archive (macOS)
         if: runner.os == 'macOS'
         run: |
           cd dist
-          zip -r ../${{ matrix.artifact }}.zip BeyannameTransfer.app
+          zip -r ../RecordRelay-macos.zip RecordRelay.app
 
-      - name: Arşivle (Linux)
+      - name: Archive (Linux)
         if: runner.os == 'Linux'
         run: |
           cd dist
-          chmod +x BeyannameTransfer
-          tar czf ../${{ matrix.artifact }}.tar.gz BeyannameTransfer
+          chmod +x RecordRelay
+          tar czf ../RecordRelay-linux.tar.gz RecordRelay
 
-      - name: Artifact yükle
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
           path: |
-            ${{ matrix.artifact }}.zip
-            ${{ matrix.artifact }}.tar.gz
+            RecordRelay-windows.zip
+            RecordRelay-macos.zip
+            RecordRelay-linux.tar.gz
           if-no-files-found: ignore
 
-  release:
-    name: Release yayınla
-    needs: build
+  build-plugin:
+    name: IntelliJ Plugin
     runs-on: ubuntu-latest
+
     steps:
-      - name: Tüm artifactları indir
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build plugin
+        working-directory: plugin
+        run: ./gradlew buildPlugin --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: recordrelay-plugin
+          path: plugin/build/distributions/recordrelay-plugin-*.zip
+
+  release:
+    name: Publish Release
+    needs: [build-desktop, build-plugin]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: Release oluştur
+      - name: Compute SHA-256 checksums
+        run: |
+          find artifacts -type f | sort | while read f; do
+            sha256sum "$f" | awk '{print $1, "  " $2}'
+          done > checksums.txt
+          cat checksums.txt
+
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/*
-          generate_release_notes: true
-          name: "Beyanname Transfer ${{ github.ref_name }}"
+          files: |
+            artifacts/**/*
+            checksums.txt
+          name: "RecordRelay ${{ github.ref_name }}"
           body: |
-            ## Beyanname Transfer ${{ github.ref_name }}
+            ## RecordRelay ${{ github.ref_name }}
 
-            İşletim sisteminize uygun dosyayı indirin:
+            Universal database record transfer across environments — desktop app, IntelliJ plugin, and CLI.
 
-            | İşletim Sistemi | Dosya |
+            ### Desktop App
+
+            Download the binary for your OS, extract, and run. No installation required.
+
+            | OS | File |
             |---|---|
-            | 🪟 Windows | `BeyannameTransfer-windows.zip` |
-            | 🍎 macOS | `BeyannameTransfer-macos.zip` |
-            | 🐧 Linux | `BeyannameTransfer-linux.tar.gz` |
+            | 🪟 Windows | `RecordRelay-windows.zip` |
+            | 🍎 macOS | `RecordRelay-macos.zip` |
+            | 🐧 Linux | `RecordRelay-linux.tar.gz` |
 
-            Arşivi açıp uygulamayı çalıştırın. Kurulum gerekmez.
+            > First launch on Windows or macOS may show an unsigned-app warning. Click "Run anyway" / "Open anyway".
 
-            > **Not:** İlk açılışta Windows SmartScreen veya macOS Gatekeeper
-            > uyarı verebilir (imzasız uygulama). "Yine de çalıştır" ile geçebilirsiniz.
+            ### IntelliJ Plugin
+
+            Install `recordrelay-plugin-${{ github.ref_name }}.zip` via `Settings → Plugins → Install from Disk`.
+            Works in IntelliJ IDEA, PyCharm, WebStorm, DataGrip (2024.1+).
+
+            ### Verify downloads
+
+            Compare file hashes against `checksums.txt` before running.
+
+            ---
+            **Full changelog:** https://github.com/MstroCA/recordrelay/commits/${{ github.ref_name }}
