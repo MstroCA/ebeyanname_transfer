@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Ana pencere: yan menü + sayfa yığını."""
+"""Main window: sidebar nav + page stack."""
 
 from __future__ import annotations
 
@@ -19,10 +19,10 @@ from .theme import QSS
 from .connections_view import ConnectionsView
 from .transfer_view import TransferView
 from .monitoring_view import MonitoringView
+from .profiles_view import ProfilesView
 
 
 def asset_path(name: str) -> Path:
-    """PyInstaller bundle veya normal çalıştırma için varlık yolu."""
     if hasattr(sys, "_MEIPASS"):
         return Path(sys._MEIPASS) / "assets" / name  # type: ignore
     return Path(__file__).resolve().parent.parent.parent / "assets" / name
@@ -39,7 +39,7 @@ def app_icon() -> QIcon:
 class AboutDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Hakkında")
+        self.setWindowTitle("About")
         self.setFixedWidth(420)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(28, 28, 28, 24)
@@ -58,7 +58,7 @@ class AboutDialog(QDialog):
         name.setStyleSheet("font-size:18px; font-weight:700;")
         lay.addWidget(name)
 
-        ver = QLabel(f"Sürüm {__version__}")
+        ver = QLabel(f"Version {__version__}")
         ver.setAlignment(Qt.AlignCenter)
         ver.setStyleSheet("color:#5A6478;")
         lay.addWidget(ver)
@@ -74,7 +74,7 @@ class AboutDialog(QDialog):
         author.setStyleSheet("color:#8A93A6; font-size:11px; padding-top:8px;")
         lay.addWidget(author)
 
-        btn = QPushButton("Kapat")
+        btn = QPushButton("Close")
         btn.setObjectName("Primary")
         btn.clicked.connect(self.accept)
         lay.addWidget(btn)
@@ -85,7 +85,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle(f"{__app_name__} · Platform Engineering")
         self.setWindowIcon(app_icon())
-        self.resize(1080, 720)
+        self.resize(1120, 740)
         self.setStyleSheet(QSS)
 
         self.store = ConnectionStore()
@@ -103,7 +103,7 @@ class MainWindow(QMainWindow):
         sl.setContentsMargins(0, 0, 0, 0)
         sl.setSpacing(0)
 
-        brand = QLabel("Beyanname Transfer")
+        brand = QLabel(__app_name__)
         brand.setObjectName("Brand")
         sub = QLabel("Platform Engineering")
         sub.setObjectName("BrandSub")
@@ -114,17 +114,20 @@ class MainWindow(QMainWindow):
         self.v_transfer = TransferView(self.store)
         self.v_conns = ConnectionsView(self.store)
         self.v_monitor = MonitoringView()
-        self.stack.addWidget(self.v_transfer)
-        self.stack.addWidget(self.v_conns)
-        self.stack.addWidget(self.v_monitor)
+        self.v_profiles = ProfilesView()
+        self.stack.addWidget(self.v_transfer)   # 0
+        self.stack.addWidget(self.v_conns)      # 1
+        self.stack.addWidget(self.v_monitor)    # 2
+        self.stack.addWidget(self.v_profiles)   # 3
 
         self.nav_group = QButtonGroup(self)
         self.nav_group.setExclusive(True)
 
         nav_items = [
-            ("Aktarım", 0),
-            ("Veritabanları", 1),
-            ("İzleme", 2),
+            ("Transfer", 0),
+            ("Connections", 1),
+            ("History", 2),
+            ("Profiles", 3),
         ]
         for text, idx in nav_items:
             btn = QPushButton(text)
@@ -137,7 +140,7 @@ class MainWindow(QMainWindow):
                 btn.setChecked(True)
 
         sl.addStretch()
-        about_btn = QPushButton(f"Hakkında · v{__version__}")
+        about_btn = QPushButton(f"About · v{__version__}")
         about_btn.setObjectName("NavBtn")
         about_btn.clicked.connect(self._show_about)
         sl.addWidget(about_btn)
@@ -146,11 +149,10 @@ class MainWindow(QMainWindow):
         root.addWidget(self.stack, 1)
         self.setCentralWidget(central)
 
-        # durum çubuğu
-        self.statusBar().showMessage(f"{__app_name__} v{__version__} — hazır")
+        self.statusBar().showMessage(f"{__app_name__} v{__version__} — ready")
 
-        # bağlantı değişince transfer ekranı listesini tazele
         self.v_conns.changed.connect(self.v_transfer.reload_connections)
+        self.v_profiles.changed.connect(self.v_transfer._load_profiles)
 
     def _show_about(self):
         AboutDialog(self).exec()
@@ -161,3 +163,5 @@ class MainWindow(QMainWindow):
             self.v_transfer.reload_connections()
         elif idx == 2:
             self.v_monitor.refresh()
+        elif idx == 3:
+            self.v_profiles.refresh()

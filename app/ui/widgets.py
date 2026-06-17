@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Ortak UI yardımcıları: SVG render, ortam rozeti, kart."""
+"""Common UI helpers: SVG render, environment badge, card widget."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QLabel, QFrame, QVBoxLayout
 
 from ..core.environments import Environment
-from .icons import db_svg, ENV_COLORS
+from .icons import db_svg, _get_env_colors
 
 
 def svg_pixmap(svg: str, size: int) -> QPixmap:
@@ -30,7 +30,7 @@ def db_icon_label(env: Environment, size: int = 56) -> QLabel:
 
 
 def env_color(env: Environment) -> str:
-    return ENV_COLORS[env]["main"]
+    return _get_env_colors(env)["main"]
 
 
 class Card(QFrame):

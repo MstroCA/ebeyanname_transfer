@@ -1,25 +1,28 @@
 # -*- coding: utf-8 -*-
-"""İzleme ekranı: çalıştırma geçmişi, durum rozetleri, özet istatistik."""
+"""History screen: transfer run records, status badges, log access."""
 
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
 from datetime import datetime
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTableWidget, QTableWidgetItem,
-    QHeaderView, QPushButton, QAbstractItemView, QFileDialog,
+    QHeaderView, QPushButton, QAbstractItemView,
 )
 
 from ..core import monitoring
 from .widgets import Card
 
 STATUS_STYLE = {
-    "success":   ("#E6F6EC", "#1B6E45", "Başarılı"),
-    "warning":   ("#FEF3DD", "#A8650A", "Uyarılı"),
-    "error":     ("#FEEBEC", "#A01F23", "Hata"),
-    "blocked":   ("#FEEBEC", "#A01F23", "Engellendi"),
-    "cancelled": ("#F4F6FB", "#5A6478", "İptal"),
+    "success":   ("#E6F6EC", "#1B6E45", "Success"),
+    "warning":   ("#FEF3DD", "#A8650A", "Warning"),
+    "error":     ("#FEEBEC", "#A01F23", "Error"),
+    "blocked":   ("#FEEBEC", "#A01F23", "Blocked"),
+    "cancelled": ("#F4F6FB", "#5A6478", "Cancelled"),
 }
 
 
@@ -46,15 +49,15 @@ class MonitoringView(QWidget):
 
         head = QHBoxLayout()
         col = QVBoxLayout()
-        t = QLabel("İzleme")
+        t = QLabel("History")
         t.setObjectName("PageTitle")
-        s = QLabel("Tüm aktarım çalıştırmaları, durumları ve log dosyaları burada tutulur.")
+        s = QLabel("All transfer runs, statuses, and log files are tracked here.")
         s.setObjectName("PageSub")
         col.addWidget(t)
         col.addWidget(s)
         head.addLayout(col)
         head.addStretch()
-        refresh = QPushButton("Yenile")
+        refresh = QPushButton("Refresh")
         refresh.setObjectName("Ghost")
         refresh.clicked.connect(self.refresh)
         head.addWidget(refresh, alignment=Qt.AlignTop)
@@ -62,29 +65,28 @@ class MonitoringView(QWidget):
 
         stats = QHBoxLayout()
         stats.setSpacing(14)
-        self.c_total = StatCard("Toplam çalıştırma")
-        self.c_success = StatCard("Başarılı")
-        self.c_problem = StatCard("Hata / Uyarı")
-        self.c_blocked = StatCard("Engellenen yön")
+        self.c_total = StatCard("Total runs")
+        self.c_success = StatCard("Successful")
+        self.c_problem = StatCard("Errors / Warnings")
+        self.c_blocked = StatCard("Blocked")
         for c in (self.c_total, self.c_success, self.c_problem, self.c_blocked):
             stats.addWidget(c)
         root.addLayout(stats)
 
-        self.table = QTableWidget(0, 7)
+        self.table = QTableWidget(0, 8)
         self.table.setHorizontalHeaderLabels(
-            ["Zaman", "Yön", "Beyanname", "Durum", "Satır", "Süre", "Log"])
+            ["Time", "Direction", "Table", "Record ID", "Status", "Rows", "Duration", "Log"])
         self.table.verticalHeader().setVisible(False)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         h = self.table.horizontalHeader()
         h.setSectionResizeMode(1, QHeaderView.Stretch)
-        h.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        for i in (2, 3, 4, 5, 6):
+        for i in (0, 2, 3, 4, 5, 6, 7):
             h.setSectionResizeMode(i, QHeaderView.ResizeToContents)
         self.table.verticalHeader().setDefaultSectionSize(44)
         root.addWidget(self.table, 1)
 
-        self.empty = QLabel("Henüz aktarım yapılmadı.")
+        self.empty = QLabel("No transfers recorded yet.")
         self.empty.setAlignment(Qt.AlignCenter)
         self.empty.setStyleSheet("color:#5A6478; padding:40px;")
         root.addWidget(self.empty)
@@ -120,7 +122,11 @@ class MonitoringView(QWidget):
         self.table.setItem(row, 0, QTableWidgetItem(ts))
         self.table.setItem(row, 1, QTableWidgetItem(
             f"{r.source_name} ({r.source_env})  →  {r.target_name} ({r.target_env})"))
-        self.table.setItem(row, 2, QTableWidgetItem(str(r.beyanname_id)))
+        tbl_text = r.root_table or "—"
+        if r.dry_run:
+            tbl_text += " [DRY]"
+        self.table.setItem(row, 2, QTableWidgetItem(tbl_text))
+        self.table.setItem(row, 3, QTableWidgetItem(str(r.record_id)))
 
         bg, fg, label = STATUS_STYLE.get(r.status, ("#F4F6FB", "#5A6478", r.status))
         badge = QLabel(label)
@@ -129,27 +135,26 @@ class MonitoringView(QWidget):
             f"background:{bg}; color:{fg}; border-radius:10px; "
             f"padding:3px 10px; font-weight:700; font-size:11px;")
         wrap = QWidget()
-        wl = QHBoxLayout(wrap)
+        from PySide6.QtWidgets import QHBoxLayout as _HBL
+        wl = _HBL(wrap)
         wl.setContentsMargins(6, 4, 6, 4)
         wl.addWidget(badge)
-        self.table.setCellWidget(row, 3, wrap)
+        self.table.setCellWidget(row, 4, wrap)
 
-        self.table.setItem(row, 4, QTableWidgetItem(str(r.total_rows)))
-        self.table.setItem(row, 5, QTableWidgetItem(f"{r.duration_sec:g} sn"))
+        self.table.setItem(row, 5, QTableWidgetItem(str(r.total_rows)))
+        self.table.setItem(row, 6, QTableWidgetItem(f"{r.duration_sec:g}s"))
 
-        open_btn = QPushButton("Aç")
+        open_btn = QPushButton("Open")
         open_btn.setObjectName("Ghost")
         open_btn.clicked.connect(lambda _, p=r.log_file: self._open_log(p))
         ow = QWidget()
-        owl = QHBoxLayout(ow)
+        from PySide6.QtWidgets import QHBoxLayout as _HBL2
+        owl = _HBL2(ow)
         owl.setContentsMargins(6, 4, 6, 4)
         owl.addWidget(open_btn)
-        self.table.setCellWidget(row, 6, ow)
+        self.table.setCellWidget(row, 7, ow)
 
     def _open_log(self, path: str):
-        import os
-        import subprocess
-        import sys
         if not os.path.exists(path):
             return
         try:

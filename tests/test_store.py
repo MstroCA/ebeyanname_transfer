@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Şifreli bağlantı saklama testleri."""
+"""Encrypted connection store tests."""
 
 import importlib
 from pathlib import Path
@@ -9,8 +9,9 @@ import pytest
 
 @pytest.fixture
 def store(tmp_path, monkeypatch):
-    """Her test için izole, geçici bir store döndürür."""
     import app.core.store as store_mod
+    import app.core.environments as env_mod
+    importlib.reload(env_mod)
     importlib.reload(store_mod)
     monkeypatch.setattr(store_mod, "APP_DIR", tmp_path)
     monkeypatch.setattr(store_mod, "CONN_FILE", tmp_path / "connections.enc")
@@ -43,9 +44,9 @@ def test_update(store):
     s = store.ConnectionStore()
     c = store.Connection.new("Prod", "PROD", "h", 5432, "db", "u", "p")
     s.add(c)
-    c.name = "Prod KATV"
+    c.name = "Prod Main"
     s.update(c)
-    assert store.ConnectionStore().get(c.id).name == "Prod KATV"
+    assert store.ConnectionStore().get(c.id).name == "Prod Main"
 
 
 def test_remove(store):
@@ -57,9 +58,28 @@ def test_remove(store):
 
 
 def test_by_environment(store):
-    from app.core.environments import Environment
     s = store.ConnectionStore()
     s.add(store.Connection.new("P", "PROD", "h", 5432, "db", "u", "p"))
     s.add(store.Connection.new("L", "LOCAL", "h", 5432, "db", "u", "p"))
-    assert len(s.by_environment(Environment.PROD)) == 1
-    assert len(s.by_environment(Environment.LOCAL)) == 1
+    assert len(s.by_environment("PROD")) == 1
+    assert len(s.by_environment("LOCAL")) == 1
+
+
+def test_db_type_default(store):
+    s = store.ConnectionStore()
+    c = store.Connection.new("Prod", "PROD", "h", 5432, "db", "u", "p")
+    assert c.db_type == "postgresql"
+    s.add(c)
+    c2 = store.ConnectionStore().all()[0]
+    assert c2.db_type == "postgresql"
+
+
+def test_mysql_connection(store):
+    s = store.ConnectionStore()
+    c = store.Connection.new("MySQL DB", "LOCAL", "localhost", 3306, "mydb", "root", "pass", db_type="mysql")
+    assert c.db_type == "mysql"
+    s.add(c)
+    loaded = store.ConnectionStore().all()[0]
+    assert loaded.db_type == "mysql"
+    params = loaded.connect_params()
+    assert params["port"] == 3306

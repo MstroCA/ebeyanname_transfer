@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Loglama ve çalıştırma geçmişi (monitoring).
+Run logging and transfer history.
 
-- Her transfer için detaylı log dosyası: ~/.beyanname_transfer/logs/
-- Çalıştırma geçmişi özeti (JSONL): ~/.beyanname_transfer/history.jsonl
-  Monitoring panelinde son çalıştırmalar, satır sayıları, hata/uyarı
-  durumları bu dosyadan okunur.
+- Per-run log file: ~/.recordrelay/logs/
+- History (JSONL): ~/.recordrelay/history.jsonl
 """
 
 from __future__ import annotations
@@ -17,23 +15,24 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-APP_DIR = Path.home() / ".beyanname_transfer"
+APP_DIR = Path.home() / ".recordrelay"
 LOG_DIR = APP_DIR / "logs"
 HISTORY_FILE = APP_DIR / "history.jsonl"
 
 
-def new_run_logger(beyanname_id: int) -> tuple[logging.Logger, Path]:
-    """Tek bir transfer çalıştırması için dosya logger'ı üretir."""
+def new_run_logger(record_id: str) -> tuple[logging.Logger, Path]:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    path = LOG_DIR / f"transfer_{beyanname_id}_{ts}.log"
+    safe_id = str(record_id).replace("/", "_").replace("\\", "_")
+    path = LOG_DIR / f"transfer_{safe_id}_{ts}.log"
 
-    logger = logging.getLogger(f"transfer.{ts}.{beyanname_id}")
+    logger = logging.getLogger(f"transfer.{ts}.{safe_id}")
     logger.setLevel(logging.INFO)
     logger.handlers.clear()
     fh = logging.FileHandler(path, encoding="utf-8")
     fh.setFormatter(logging.Formatter(
-        "%(asctime)s [%(levelname)-7s] %(message)s", datefmt="%H:%M:%S"))
+        "%(asctime)s [%(levelname)-7s] %(message)s", datefmt="%H:%M:%S"
+    ))
     logger.addHandler(fh)
     logger.propagate = False
     return logger, path
@@ -42,17 +41,20 @@ def new_run_logger(beyanname_id: int) -> tuple[logging.Logger, Path]:
 @dataclass
 class RunRecord:
     timestamp: str
-    beyanname_id: int
+    record_id: str
+    root_table: str
+    fk_column: str
     source_name: str
     source_env: str
     target_name: str
     target_env: str
-    status: str          # "success" | "warning" | "error" | "blocked" | "cancelled"
+    status: str           # "success" | "warning" | "error" | "blocked" | "cancelled"
     total_rows: int
     total_errors: int
     skipped_tables: int
     duration_sec: float
     log_file: str
+    dry_run: bool = False
     message: str = ""
 
     @staticmethod
@@ -76,8 +78,15 @@ def read_history(limit: int = 100) -> list[RunRecord]:
             if not line:
                 continue
             try:
-                records.append(RunRecord(**json.loads(line)))
+                data = json.loads(line)
+                # backward compat: old records used beyanname_id
+                if "beyanname_id" in data and "record_id" not in data:
+                    data["record_id"] = str(data.pop("beyanname_id"))
+                data.setdefault("root_table", "beyanname")
+                data.setdefault("fk_column", "beyanname_id")
+                data.setdefault("dry_run", False)
+                records.append(RunRecord(**data))
             except (json.JSONDecodeError, TypeError):
                 continue
-    records.reverse()  # en yeni en üstte
+    records.reverse()
     return records[:limit]

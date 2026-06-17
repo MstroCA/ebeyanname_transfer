@@ -1,14 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Veritabanı tanımlarının şifreli olarak saklanması.
+Encrypted connection store.
 
-Tanımlar kullanıcının home dizininde, makineye özel türetilmiş bir
-anahtarla (Fernet) şifrelenerek tutulur. Şifreler düz metin olarak
-diske yazılmaz.
-
-Dosya konumu:
-    ~/.beyanname_transfer/connections.enc
-    ~/.beyanname_transfer/.salt
+Connections are stored in ~/.recordrelay/connections.enc using a
+machine-specific Fernet key derived via PBKDF2.
 """
 
 from __future__ import annotations
@@ -19,49 +14,68 @@ import os
 import uuid
 from dataclasses import dataclass, asdict, field
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-from .environments import Environment
+from .environments import Environment, EnvironmentRegistry
 
-
-APP_DIR = Path.home() / ".beyanname_transfer"
+APP_DIR = Path.home() / ".recordrelay"
 CONN_FILE = APP_DIR / "connections.enc"
 SALT_FILE = APP_DIR / ".salt"
 
 
 @dataclass
 class Connection:
-    """Tek bir veritabanı tanımı."""
     id: str
-    name: str                # Görünen ad, ör: "Prod KATV"
-    environment: str         # Environment değeri: PROD / TEST / LOCAL
+    name: str
+    environment: str
     host: str
     port: int
     dbname: str
     user: str
     password: str
+    db_type: str = "postgresql"
     note: str = ""
 
     @property
     def env(self) -> Environment:
-        return Environment(self.environment)
+        return EnvironmentRegistry.instance().get(self.environment)
 
     def dsn(self) -> str:
+        if self.db_type == "mysql":
+            return ""
         return (
             f"host={self.host} port={self.port} dbname={self.dbname} "
             f"user={self.user} password={self.password}"
         )
 
+    def connect_params(self) -> dict:
+        return {
+            "host": self.host,
+            "port": self.port,
+            "dbname": self.dbname,
+            "user": self.user,
+            "password": self.password,
+        }
+
     def masked_summary(self) -> str:
         return f"{self.host}:{self.port}/{self.dbname}"
 
     @staticmethod
-    def new(name: str, environment: str, host: str, port: int,
-            dbname: str, user: str, password: str, note: str = "") -> "Connection":
+    def new(
+        name: str,
+        environment: str,
+        host: str,
+        port: int,
+        dbname: str,
+        user: str,
+        password: str,
+        db_type: str = "postgresql",
+        note: str = "",
+    ) -> "Connection":
         return Connection(
             id=str(uuid.uuid4()),
             name=name,
@@ -71,21 +85,16 @@ class Connection:
             dbname=dbname,
             user=user,
             password=password,
+            db_type=db_type,
             note=note,
         )
 
 
 def _machine_secret() -> bytes:
-    """
-    Makineye özgü, kalıcı bir gizli değer üretir/okur.
-    Bu, anahtar türetmenin temelini oluşturur; böylece şifreli dosya
-    başka makineye kopyalansa bile kolayca çözülemez.
-    """
     APP_DIR.mkdir(parents=True, exist_ok=True)
     machine_file = APP_DIR / ".machine"
     if machine_file.exists():
         return machine_file.read_bytes()
-    # uuid.getnode() MAC tabanlı + rastgele bileşen
     secret = (str(uuid.getnode()) + uuid.uuid4().hex).encode("utf-8")
     machine_file.write_bytes(secret)
     try:
@@ -106,26 +115,21 @@ def _derive_key() -> bytes:
             os.chmod(SALT_FILE, 0o600)
         except OSError:
             pass
-
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
         salt=salt,
         iterations=200_000,
     )
-    key = base64.urlsafe_b64encode(kdf.derive(_machine_secret()))
-    return key
+    return base64.urlsafe_b64encode(kdf.derive(_machine_secret()))
 
 
 class ConnectionStore:
-    """Bağlantı tanımlarını şifreli dosyada saklar/okur."""
-
     def __init__(self) -> None:
         self._fernet = Fernet(_derive_key())
         self._connections: list[Connection] = []
         self.load()
 
-    # ── kalıcılık ──
     def load(self) -> None:
         self._connections = []
         if not CONN_FILE.exists():
@@ -134,10 +138,10 @@ class ConnectionStore:
             raw = CONN_FILE.read_bytes()
             data = self._fernet.decrypt(raw)
             items = json.loads(data.decode("utf-8"))
-            self._connections = [Connection(**item) for item in items]
+            for item in items:
+                item.setdefault("db_type", "postgresql")
+                self._connections.append(Connection(**item))
         except (InvalidToken, ValueError, json.JSONDecodeError):
-            # Bozuk veya farklı makineden gelmiş dosya — sessizce boşla,
-            # üzerine yazılana kadar dokunma.
             self._connections = []
 
     def save(self) -> None:
@@ -150,12 +154,12 @@ class ConnectionStore:
         except OSError:
             pass
 
-    # ── CRUD ──
     def all(self) -> list[Connection]:
         return list(self._connections)
 
-    def by_environment(self, env: Environment) -> list[Connection]:
-        return [c for c in self._connections if c.env == env]
+    def by_environment(self, env: Union[Environment, str]) -> list[Connection]:
+        env_name = env.name if isinstance(env, Environment) else str(env)
+        return [c for c in self._connections if c.environment.upper() == env_name.upper()]
 
     def get(self, conn_id: str) -> Optional[Connection]:
         return next((c for c in self._connections if c.id == conn_id), None)

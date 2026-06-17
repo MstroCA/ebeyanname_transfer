@@ -1,0 +1,39 @@
+<idea-plugin>
+    <id>io.recordrelay</id>
+    <name>RecordRelay</name>
+    <version>3.0.0</version>
+    <vendor email="support@recordrelay.io" url="https://recordrelay.io">RecordRelay</vendor>
+
+    <description><![CDATA[
+        <b>RecordRelay</b> — Universal database record transfer across environments.<br/><br/>
+        Transfer any database record (and all its related child rows) between PostgreSQL or MySQL
+        databases safely, with environment-based direction rules that prevent upstream data flow.<br/><br/>
+        <b>Features:</b>
+        <ul>
+            <li>Works with any table structure — configure root table + FK column</li>
+            <li>PostgreSQL and MySQL / MariaDB support</li>
+            <li>Environment hierarchy rules (PROD → TEST → LOCAL only)</li>
+            <li>Dry-run preview mode</li>
+            <li>Transfer profiles for reusable configurations</li>
+            <li>Shared history with the RecordRelay desktop app</li>
+            <li>Field value overrides for environment-specific values</li>
+        </ul>
+    ]]></description>
+
+    <change-notes><![CDATA[
+        <b>3.0.0</b> — Initial release of the universal RecordRelay plugin.
+        Supports PostgreSQL and MySQL, configurable environments, transfer profiles,
+        and dry-run mode.
+    ]]></change-notes>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow
+            id="RecordRelay"
+            secondary="true"
+            icon="/icons/recordrelay.svg"
+            anchor="right"
+            factoryClass="io.recordrelay.ui.RecordRelayToolWindowFactory"/>
+    </extensions>
+</idea-plugin>

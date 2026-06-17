@@ -1,60 +1,81 @@
 # -*- coding: utf-8 -*-
-"""Yön kuralları testleri — en kritik güvenlik kısıtı."""
+"""Direction rules tests — the most critical safety constraint."""
 
 import pytest
 
 from app.core.environments import (
-    Environment, check_direction, allowed_targets_for, ALLOWED_DIRECTIONS,
+    Environment, EnvironmentRegistry, check_direction, allowed_targets_for,
+    PROD, TEST, LOCAL, STAGING, QA, DEV,
 )
 
 
 @pytest.mark.parametrize("source,target", [
-    (Environment.PROD, Environment.TEST),
-    (Environment.PROD, Environment.LOCAL),
-    (Environment.TEST, Environment.LOCAL),
+    (PROD, TEST),
+    (PROD, LOCAL),
+    (TEST, LOCAL),
+    (PROD, DEV),
+    (STAGING, LOCAL),
+    (STAGING, DEV),
 ])
 def test_allowed_directions(source, target):
     assert check_direction(source, target).allowed is True
 
 
 @pytest.mark.parametrize("source,target", [
-    (Environment.LOCAL, Environment.PROD),
-    (Environment.TEST, Environment.PROD),
-    (Environment.LOCAL, Environment.TEST),
+    (LOCAL, PROD),
+    (TEST, PROD),
+    (LOCAL, TEST),
+    (DEV, PROD),
+    (LOCAL, STAGING),
 ])
 def test_forbidden_upward_directions(source, target):
     chk = check_direction(source, target)
     assert chk.allowed is False
-    assert chk.reason  # bir gerekçe dönmeli
+    assert chk.reason
 
 
-@pytest.mark.parametrize("env", list(Environment))
+@pytest.mark.parametrize("env", [PROD, TEST, LOCAL, STAGING, QA, DEV])
 def test_same_environment_forbidden(env):
     assert check_direction(env, env).allowed is False
 
 
 def test_no_upward_flow_ever():
-    """Hiçbir senaryoda alt ortamdan üst ortama akış olmamalı."""
-    for s in Environment:
-        for t in Environment:
+    """Data must never flow from lower rank to higher rank."""
+    all_envs = [PROD, STAGING, TEST, QA, LOCAL, DEV]
+    for s in all_envs:
+        for t in all_envs:
             chk = check_direction(s, t)
             if t.rank > s.rank:
-                assert chk.allowed is False, f"{s}->{t} yukarı akış izinli olmamalı!"
+                assert chk.allowed is False, f"{s} -> {t} upstream flow must be blocked!"
 
 
 def test_allowed_targets_for_prod():
-    targets = set(allowed_targets_for(Environment.PROD))
-    assert targets == {Environment.TEST, Environment.LOCAL}
-
-
-def test_allowed_targets_for_test():
-    assert allowed_targets_for(Environment.TEST) == [Environment.LOCAL]
+    all_envs = [PROD, STAGING, TEST, QA, LOCAL, DEV]
+    targets = allowed_targets_for(PROD, all_envs)
+    target_names = {e.name for e in targets}
+    assert "PROD" not in target_names
+    assert "LOCAL" in target_names
+    assert "TEST" in target_names
 
 
 def test_allowed_targets_for_local():
-    assert allowed_targets_for(Environment.LOCAL) == []
+    all_envs = [PROD, STAGING, TEST, QA, LOCAL, DEV]
+    assert allowed_targets_for(LOCAL, all_envs) == []
 
 
-def test_allowed_set_size():
-    # Tam olarak 3 izinli yön olmalı, fazlası güvenlik açığı demektir.
-    assert len(ALLOWED_DIRECTIONS) == 3
+def test_environment_equality():
+    assert PROD == Environment("PROD", 3)
+    assert PROD == "PROD"
+    assert PROD == "prod"
+    assert TEST != PROD
+
+
+def test_custom_environment():
+    registry = EnvironmentRegistry()
+    custom = Environment("UAT", 2)
+    prod = Environment("PROD", 3)
+    chk = check_direction(prod, custom)
+    assert chk.allowed is True
+
+    chk2 = check_direction(custom, prod)
+    assert chk2.allowed is False
