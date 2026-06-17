@@ -30,6 +30,9 @@ a = Analysis(
     ],
     hiddenimports=[
         'psycopg2',
+        'psycopg2.extras',
+        'pymysql',
+        'pymysql.cursors',
         'PySide6.QtSvg',
     ],
     hookspath=[],
@@ -53,7 +56,7 @@ exe = EXE(
     a.binaries,
     a.zipfiles,
     a.datas,
-    name='BeyannameTransfer',
+    name='RecordRelay',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -69,11 +72,11 @@ exe = EXE(
 if sys.platform == "darwin":
     app = BUNDLE(
         exe,
-        name='BeyannameTransfer.app',
+        name='RecordRelay.app',
         icon=icon_file,
-        bundle_identifier='tr.gov.gib.beyanname-transfer',
+        bundle_identifier='io.recordrelay',
         info_plist={
-            'CFBundleShortVersionString': '2.0.0',
+            'CFBundleShortVersionString': '3.0.0',
             'NSHighResolutionCapable': 'True',
         },
     )
