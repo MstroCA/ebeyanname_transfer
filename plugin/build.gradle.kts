@@ -1,5 +1,18 @@
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
+// Determine release channel from version tag:
+//   v3.0.0        → "default"  (stable, goes to Marketplace main channel)
+//   v3.0.0-beta   → "beta"
+//   v3.0.0-eap    → "eap"
+val releaseChannel: String = providers.gradleProperty("pluginVersion").getOrElse("").let { v ->
+    when {
+        v.contains("-beta", ignoreCase = true) -> "beta"
+        v.contains("-eap",  ignoreCase = true) -> "eap"
+        v.contains("-rc",   ignoreCase = true) -> "rc"
+        else -> "default"
+    }
+}
+
 plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm") version "1.9.25"
@@ -63,6 +76,7 @@ intellijPlatform {
 
     publishing {
         token = providers.environmentVariable("PUBLISH_TOKEN")
+        channels = listOf(releaseChannel)
     }
 
     pluginVerification {
