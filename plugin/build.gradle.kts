@@ -17,6 +17,7 @@ repositories {
     mavenCentral()
     intellijPlatform {
         defaultRepositories()
+        intellijDependencies()
     }
 }
 
@@ -27,6 +28,7 @@ dependencies {
             providers.gradleProperty("platformVersion")
         )
         bundledPlugin("com.intellij.java")
+        instrumentationTools()
         pluginVerifier()
         zipSigner()
         testFramework(TestFrameworkType.Platform)
@@ -36,8 +38,7 @@ dependencies {
     implementation("org.postgresql:postgresql:42.7.3")
     implementation("com.mysql:mysql-connector-j:9.0.0")
 
-    // Kotlin coroutines for background transfers
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
+    // Swing dispatcher for coroutines (core is provided by IntelliJ Platform)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.8.1")
 
     testImplementation("junit:junit:4.13.2")

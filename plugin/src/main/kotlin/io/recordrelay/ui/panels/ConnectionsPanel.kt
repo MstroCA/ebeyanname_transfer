@@ -132,7 +132,6 @@ class ConnectionsPanel(
             JOptionPane.showMessageDialog(this, "Please select a connection to test.")
             return
         }
-        val statusLbl = JOptionPane.getRootFrame()
         scope.launch {
             val (ok, msg) = TransferEngine.testConnection(conn)
             withContext(Dispatchers.Swing) {
